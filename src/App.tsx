@@ -1,132 +1,129 @@
-import { useEffect, useState } from 'react'
-import { supabase } from './supabase/client'
+import { useEffect, useState } from 'react';
+import { supabase } from './supabase/client';
 
-type EmojiMediaRow = {
-  emoji: string
-  media_path: string
-  role: string
-  intensity: number
-  enabled: boolean
-}
+type EmojiMedia = {
+  id: number;
+  emoji: string;
+  media_path: string;
+  role: string;
+  intensity: number;
+  enabled: boolean;
+};
 
 export default function App() {
-  const [rows, setRows] = useState<EmojiMediaRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [rows, setRows] = useState<EmojiMedia[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const load = async () => {
-    setLoading(true)
+    setLoading(true);
     const { data, error } = await supabase
       .from('emoji_media')
       .select('*')
-      .order('emoji', { ascending: true })
-      .order('role', { ascending: true })
+      .order('emoji', { ascending: true });
 
     if (error) {
-      setError(error.message)
+      console.error(error);
+      setError(error.message);
     } else {
-      setRows(data ?? [])
+      setRows(data || []);
+      setError(null);
     }
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
+    setLoading(false);
+  };
 
   const updateRow = async (
-    row: EmojiMediaRow,
-    patch: Partial<EmojiMediaRow>
+    id: number,
+    patch: Partial<EmojiMedia>
   ) => {
-    // optimistic update
-    setRows(prev =>
-      prev.map(r =>
-        r.emoji === row.emoji && r.media_path === row.media_path
-          ? { ...r, ...patch }
-          : r
-      )
-    )
+    setSavingId(id);
 
     const { error } = await supabase
       .from('emoji_media')
       .update(patch)
-      .eq('emoji', row.emoji)
-      .eq('media_path', row.media_path)
+      .eq('id', id);
 
     if (error) {
-      console.error(error)
-      await load()
+      console.error(error);
+      alert('Erreur sauvegarde');
+    } else {
+      setRows((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+      );
     }
-  }
 
-  if (loading) return <div style={{ padding: 16 }}>Chargement…</div>
+    setSavingId(null);
+  };
 
-  if (error)
-    return (
-      <div style={{ padding: 16, color: 'red' }}>
-        Erreur Supabase : {error}
-      </div>
-    )
-
-  const grouped = rows.reduce<Record<string, EmojiMediaRow[]>>((acc, row) => {
-    if (!acc[row.emoji]) acc[row.emoji] = []
-    acc[row.emoji].push(row)
-    return acc
-  }, {})
+  if (loading) return <div>Chargement…</div>;
+  if (error) return <div style={{ color: 'red' }}>Erreur : {error}</div>;
 
   return (
-    <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif' }}>
-      <h1>EchoHypno — Resonance Admin</h1>
+    <div style={{ padding: 16, fontFamily: 'sans-serif' }}>
+      <h1>Resonance Admin</h1>
+      <p>Paramétrage fin des résonances emoji → médias</p>
 
-      {Object.entries(grouped).map(([emoji, items]) => (
-        <div
-          key={emoji}
-          style={{
-            marginBottom: 24,
-            padding: 12,
-            border: '1px solid #333',
-            borderRadius: 8
-          }}
-        >
-          <h2 style={{ fontSize: 28 }}>{emoji}</h2>
-
-          {items.map(row => (
-            <div
-              key={`${row.emoji}-${row.media_path}`}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '100px 1fr 60px 140px',
-                gap: 8,
-                alignItems: 'center',
-                padding: '6px 0'
-              }}
-            >
-              <div style={{ opacity: 0.7 }}>{row.role}</div>
-
-              <div style={{ fontSize: 12 }}>{row.media_path}</div>
-
-              <input
-                type="checkbox"
-                checked={row.enabled}
-                onChange={e =>
-                  updateRow(row, { enabled: e.target.checked })
-                }
-              />
-
-              <input
-                type="range"
-                min={0}
-                max={10}
-                step={1}
-                value={row.intensity}
-                onChange={e =>
-                  updateRow(row, { intensity: Number(e.target.value) })
-                }
-              />
-            </div>
+      <table
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          fontSize: 14
+        }}
+      >
+        <thead>
+          <tr>
+            <th>Emoji</th>
+            <th>Media</th>
+            <th>Role</th>
+            <th>Intensity</th>
+            <th>Enabled</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} style={{ borderTop: '1px solid #ddd' }}>
+              <td>{row.emoji}</td>
+              <td style={{ maxWidth: 300, fontSize: 12 }}>
+                {row.media_path}
+              </td>
+              <td>{row.role}</td>
+              <td>
+                <input
+                  type="range"
+                  min={0}
+                  max={10}
+                  step={1}
+                  value={row.intensity}
+                  onChange={(e) =>
+                    updateRow(row.id, {
+                      intensity: Number(e.target.value)
+                    })
+                  }
+                  disabled={savingId === row.id}
+                />
+                <span style={{ marginLeft: 8 }}>
+                  {row.intensity}
+                </span>
+              </td>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={row.enabled}
+                  onChange={(e) =>
+                    updateRow(row.id, { enabled: e.target.checked })
+                  }
+                  disabled={savingId === row.id}
+                />
+              </td>
+            </tr>
           ))}
-        </div>
-      ))}
+        </tbody>
+      </table>
     </div>
-  )
+  );
 }
