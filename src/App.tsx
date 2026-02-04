@@ -46,7 +46,7 @@ export default function App() {
     row: EmojiMediaRow,
     patch: Partial<EmojiMediaRow>
   ) => {
-    // optimistic update
+    // optimistic UI update
     setRows(prev =>
       prev.map(r =>
         r.emoji === row.emoji && r.media_path === row.media_path
@@ -62,8 +62,8 @@ export default function App() {
       .eq('media_path', row.media_path)
 
     if (error) {
-      console.error(error)
-      load() // rollback
+      console.error('[update error]', error)
+      load() // rollback propre
     }
   }
 
@@ -77,14 +77,17 @@ export default function App() {
 
   /* ---------- RENDER ---------- */
 
-  if (loading) return <div style={{ padding: 16 }}>Chargement…</div>
+  if (loading) {
+    return <div style={{ padding: 16 }}>Chargement…</div>
+  }
 
-  if (error)
+  if (error) {
     return (
       <div style={{ padding: 16, color: 'red' }}>
         Erreur Supabase : {error}
       </div>
     )
+  }
 
   return (
     <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif' }}>
@@ -107,7 +110,7 @@ export default function App() {
 
           {items.map(row => (
             <div
-              key={`${row.emoji}::${row.media_path}`}   {/* ✅ FIX CRITIQUE */}
+              key={`${row.emoji}::${row.media_path}`}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '100px 1fr 60px 140px',
@@ -120,7 +123,7 @@ export default function App() {
               <div style={{ opacity: 0.7 }}>{row.role}</div>
 
               {/* media */}
-              <div style={{ fontSize: 12 }}>
+              <div style={{ fontSize: 12, wordBreak: 'break-all' }}>
                 {row.media_path}
               </div>
 
