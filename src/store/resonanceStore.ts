@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { supabase } from "../supabase/client";
 
+/* -------------------------------------------------- */
+/* TYPES                                              */
+/* -------------------------------------------------- */
+
 export type ResonanceRow = {
   emoji: string;
   media_path: string;
@@ -24,13 +28,17 @@ type ResonanceState = {
   save: () => Promise<void>;
 };
 
+/* -------------------------------------------------- */
+/* STORE                                              */
+/* -------------------------------------------------- */
+
 export const useResonanceStore = create<ResonanceState>((set, get) => ({
   rows: [],
   loading: false,
   error: null,
 
   /* -------------------------------------------------- */
-  /* LOAD (READ-ONLY via Supabase anon)                 */
+  /* LOAD — READ ONLY (Supabase ANON, RLS OK)           */
   /* -------------------------------------------------- */
 
   load: async () => {
@@ -42,16 +50,19 @@ export const useResonanceStore = create<ResonanceState>((set, get) => ({
       .order("emoji", { ascending: true });
 
     if (error) {
-      console.error(error);
+      console.error("[load error]", error);
       set({ error: error.message, loading: false });
       return;
     }
 
-    set({ rows: data || [], loading: false });
+    set({
+      rows: Array.isArray(data) ? data : [],
+      loading: false,
+    });
   },
 
   /* -------------------------------------------------- */
-  /* LOCAL UPDATE (UI only)                             */
+  /* LOCAL UPDATE — UI ONLY                             */
   /* -------------------------------------------------- */
 
   updateLocal: (emoji, media_path, role, patch) => {
@@ -67,7 +78,7 @@ export const useResonanceStore = create<ResonanceState>((set, get) => ({
   },
 
   /* -------------------------------------------------- */
-  /* SAVE (via API serveur, RLS-SAFE)                   */
+  /* SAVE — VIA API SERVEUR (SERVICE ROLE, RLS SAFE)    */
   /* -------------------------------------------------- */
 
   save: async () => {
@@ -86,16 +97,16 @@ export const useResonanceStore = create<ResonanceState>((set, get) => ({
       );
 
       if (!res.ok) {
-        const text = await res.text();
-        console.error(text);
+        const errorText = await res.text();
+        console.error("[save api error]", errorText);
         alert("Erreur sauvegarde (API)");
         return;
       }
 
       alert("Sauvegarde réussie ✔");
 
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error("[save network error]", err);
       alert("Erreur réseau lors de la sauvegarde");
     }
   },
