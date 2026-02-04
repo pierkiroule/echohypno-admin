@@ -89,7 +89,9 @@ export default function App() {
   return (
     <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif' }}>
       <h1>EchoHypno — Resonance Admin</h1>
-      <p>Table : <code>emoji_media</code></p>
+      <p>
+        Table : <code>emoji_media</code>
+      </p>
 
       {Object.entries(grouped).map(([emoji, items]) => (
         <div
@@ -105,7 +107,7 @@ export default function App() {
 
           {items.map(row => (
             <div
-              key={row.media_path}
+              key={`${row.emoji}::${row.media_path}`}   {/* ✅ FIX CRITIQUE */}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '100px 1fr 60px 140px',
