@@ -14,12 +14,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  /* ---------- LOAD ---------- */
-
   const load = async () => {
     setLoading(true)
-    setError(null)
-
     const { data, error } = await supabase
       .from('emoji_media')
       .select('*')
@@ -27,12 +23,10 @@ export default function App() {
       .order('role', { ascending: true })
 
     if (error) {
-      console.error(error)
       setError(error.message)
     } else {
       setRows(data ?? [])
     }
-
     setLoading(false)
   }
 
@@ -40,13 +34,11 @@ export default function App() {
     load()
   }, [])
 
-  /* ---------- UPDATE ---------- */
-
   const updateRow = async (
     row: EmojiMediaRow,
     patch: Partial<EmojiMediaRow>
   ) => {
-    // optimistic UI update
+    // optimistic update
     setRows(prev =>
       prev.map(r =>
         r.emoji === row.emoji && r.media_path === row.media_path
@@ -62,12 +54,19 @@ export default function App() {
       .eq('media_path', row.media_path)
 
     if (error) {
-      console.error('[update error]', error)
-      load() // rollback propre
+      console.error(error)
+      await load()
     }
   }
 
-  /* ---------- GROUP BY EMOJI ---------- */
+  if (loading) return <div style={{ padding: 16 }}>Chargement…</div>
+
+  if (error)
+    return (
+      <div style={{ padding: 16, color: 'red' }}>
+        Erreur Supabase : {error}
+      </div>
+    )
 
   const grouped = rows.reduce<Record<string, EmojiMediaRow[]>>((acc, row) => {
     if (!acc[row.emoji]) acc[row.emoji] = []
@@ -75,26 +74,9 @@ export default function App() {
     return acc
   }, {})
 
-  /* ---------- RENDER ---------- */
-
-  if (loading) {
-    return <div style={{ padding: 16 }}>Chargement…</div>
-  }
-
-  if (error) {
-    return (
-      <div style={{ padding: 16, color: 'red' }}>
-        Erreur Supabase : {error}
-      </div>
-    )
-  }
-
   return (
     <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif' }}>
       <h1>EchoHypno — Resonance Admin</h1>
-      <p>
-        Table : <code>emoji_media</code>
-      </p>
 
       {Object.entries(grouped).map(([emoji, items]) => (
         <div
@@ -110,7 +92,7 @@ export default function App() {
 
           {items.map(row => (
             <div
-              key={`${row.emoji}::${row.media_path}`}
+              key={`${row.emoji}-${row.media_path}`}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '100px 1fr 60px 140px',
@@ -119,15 +101,10 @@ export default function App() {
                 padding: '6px 0'
               }}
             >
-              {/* role */}
               <div style={{ opacity: 0.7 }}>{row.role}</div>
 
-              {/* media */}
-              <div style={{ fontSize: 12, wordBreak: 'break-all' }}>
-                {row.media_path}
-              </div>
+              <div style={{ fontSize: 12 }}>{row.media_path}</div>
 
-              {/* enabled */}
               <input
                 type="checkbox"
                 checked={row.enabled}
@@ -136,7 +113,6 @@ export default function App() {
                 }
               />
 
-              {/* intensity */}
               <input
                 type="range"
                 min={0}
