@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { supabase } from './supabase/client';
 
 type EmojiMedia = {
-  id: number;
   emoji: string;
   media_path: string;
   role: string;
@@ -12,112 +11,105 @@ type EmojiMedia = {
 
 export default function App() {
   const [rows, setRows] = useState<EmojiMedia[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    load();
-  }, []);
-
-  const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    supabase
       .from('emoji_media')
       .select('*')
-      .order('emoji', { ascending: true });
+      .order('emoji')
+      .then(({ data, error }) => {
+        if (error) console.error(error);
+        setRows(data || []);
+        setLoading(false);
+      });
+  }, []);
 
-    if (error) {
-      console.error(error);
-      setError(error.message);
-    } else {
-      setRows(data || []);
-      setError(null);
-    }
-    setLoading(false);
+  const updateRow = (
+    index: number,
+    field: keyof EmojiMedia,
+    value: any
+  ) => {
+    setRows(prev =>
+      prev.map((r, i) =>
+        i === index ? { ...r, [field]: value } : r
+      )
+    );
   };
 
-  const updateRow = async (
-    id: number,
-    patch: Partial<EmojiMedia>
-  ) => {
-    setSavingId(id);
+  const saveAll = async () => {
+    setSaving(true);
+
+    const payload = rows.map(r => ({
+      emoji: r.emoji,
+      media_path: r.media_path,
+      role: r.role,
+      intensity: Number(r.intensity),
+      enabled: Boolean(r.enabled)
+    }));
 
     const { error } = await supabase
       .from('emoji_media')
-      .update(patch)
-      .eq('id', id);
+      .upsert(payload, {
+        onConflict: 'emoji,media_path'
+      });
 
     if (error) {
       console.error(error);
       alert('Erreur sauvegarde');
     } else {
-      setRows((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
-      );
+      alert('Résonances sauvegardées');
     }
 
-    setSavingId(null);
+    setSaving(false);
   };
 
   if (loading) return <div>Chargement…</div>;
-  if (error) return <div style={{ color: 'red' }}>Erreur : {error}</div>;
 
   return (
-    <div style={{ padding: 16, fontFamily: 'sans-serif' }}>
-      <h1>Resonance Admin</h1>
-      <p>Paramétrage fin des résonances emoji → médias</p>
+    <div style={{ padding: 16 }}>
+      <h2>Resonance Admin</h2>
 
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          fontSize: 14
-        }}
-      >
+      <button onClick={saveAll} disabled={saving}>
+        {saving ? 'Sauvegarde…' : 'Sauvegarder'}
+      </button>
+
+      <table border={1} cellPadding={6} style={{ marginTop: 12 }}>
         <thead>
           <tr>
             <th>Emoji</th>
-            <th>Media</th>
-            <th>Role</th>
-            <th>Intensity</th>
-            <th>Enabled</th>
+            <th>Média</th>
+            <th>Rôle</th>
+            <th>Intensité</th>
+            <th>Actif</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} style={{ borderTop: '1px solid #ddd' }}>
-              <td>{row.emoji}</td>
-              <td style={{ maxWidth: 300, fontSize: 12 }}>
-                {row.media_path}
-              </td>
-              <td>{row.role}</td>
+          {rows.map((r, i) => (
+            <tr key={`${r.emoji}-${r.media_path}`}>
+              <td>{r.emoji}</td>
+              <td>{r.media_path}</td>
+              <td>{r.role}</td>
               <td>
                 <input
-                  type="range"
+                  type="number"
                   min={0}
                   max={10}
-                  step={1}
-                  value={row.intensity}
-                  onChange={(e) =>
-                    updateRow(row.id, {
-                      intensity: Number(e.target.value)
-                    })
+                  value={r.intensity}
+                  onChange={e =>
+                    updateRow(i, 'intensity', e.target.value)
                   }
-                  disabled={savingId === row.id}
                 />
-                <span style={{ marginLeft: 8 }}>
-                  {row.intensity}
-                </span>
               </td>
               <td>
                 <input
                   type="checkbox"
-                  checked={row.enabled}
-                  onChange={(e) =>
-                    updateRow(row.id, { enabled: e.target.checked })
+                  checked={r.enabled}
+                  onChange={e =>
+                    updateRow(i, 'enabled', e.target.checked)
                   }
-                  disabled={savingId === row.id}
                 />
               </td>
             </tr>
