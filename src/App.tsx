@@ -3,20 +3,12 @@ import "./styles.css";
 import { useResonanceStore } from "./store/resonanceStore";
 
 export default function App() {
-  const { rows, load, updateLocal, save, loading, error } =
+  const { rows, load, updateLocal, save, loading } =
     useResonanceStore();
-
-  /* -------------------------------------------- */
-  /* LOAD                                         */
-  /* -------------------------------------------- */
 
   useEffect(() => {
     load();
   }, [load]);
-
-  /* -------------------------------------------- */
-  /* GROUP BY EMOJI                               */
-  /* -------------------------------------------- */
 
   const grouped = useMemo(() => {
     const map: Record<string, typeof rows> = {};
@@ -27,46 +19,28 @@ export default function App() {
     return map;
   }, [rows]);
 
-  /* -------------------------------------------- */
-  /* STATES                                       */
-  /* -------------------------------------------- */
-
-  if (loading) {
-    return <div className="loading">Chargement…</div>;
-  }
-
-  if (error) {
-    return <div className="error">Erreur : {error}</div>;
-  }
-
-  /* -------------------------------------------- */
-  /* RENDER                                       */
-  /* -------------------------------------------- */
+  if (loading) return <div className="loading">Chargement…</div>;
 
   return (
     <div className="app">
-      <header className="header">
+      <header>
         <h1>EchoHypno – Admin Résonances</h1>
-        <button className="save" onClick={save}>
-          💾 Sauver
-        </button>
+        <button onClick={save}>💾 Sauver</button>
       </header>
 
       {Object.entries(grouped).map(([emoji, items]) => (
-        <details key={emoji} open className="emoji-block">
-          <summary className="emoji-header">
+        <details key={emoji} open>
+          <summary>
             <span className="emoji">{emoji}</span>
-            <span className="count">
-              {items.filter((i) => i.enabled).length} / {items.length} actifs
-            </span>
+            <span className="count">{items.length} médias</span>
           </summary>
 
-          <table className="media-table">
+          <table>
             <thead>
               <tr>
                 <th>Actif</th>
                 <th>Média</th>
-                <th>Type</th>
+                <th>Rôle</th>
                 <th>Intensité</th>
               </tr>
             </thead>
@@ -75,13 +49,11 @@ export default function App() {
               {items.map((row) => (
                 <tr
                   key={`${row.emoji}|${row.media_path}|${row.role}`}
-                  className={!row.enabled ? "disabled" : ""}
                 >
-                  {/* ENABLE */}
                   <td>
                     <input
                       type="checkbox"
-                      checked={Boolean(row.enabled)}
+                      checked={row.enabled}
                       onChange={(e) =>
                         updateLocal(
                           row.emoji,
@@ -93,14 +65,10 @@ export default function App() {
                     />
                   </td>
 
-                  {/* PATH */}
                   <td className="path">{row.media_path}</td>
+                  <td>{row.role}</td>
 
-                  {/* ROLE */}
-                  <td className="role">{row.role}</td>
-
-                  {/* INTENSITY */}
-                  <td className="intensity-cell">
+                  <td>
                     <input
                       type="range"
                       min={0}
@@ -116,9 +84,7 @@ export default function App() {
                         )
                       }
                     />
-                    <span className="intensity-value">
-                      {row.intensity}
-                    </span>
+                    <span>{row.intensity}</span>
                   </td>
                 </tr>
               ))}
