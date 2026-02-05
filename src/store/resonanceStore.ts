@@ -1,41 +1,50 @@
 import { create } from "zustand";
 import { supabase } from "../supabase/client";
 
-export type ResonanceRow = {
-  emoji: string;
-  media_path: string;
-  role: string;
-  intensity: number;
+/* ----------------------------- */
+/* TYPES                         */
+/* ----------------------------- */
+
+export type MediaAsset = {
+  path: string;
+  category: "music" | "video" | "text" | "voice" | "shader";
+  climate: "calm" | "deep" | "luminous" | "tense" | "contrast";
+  energy: number; // 0 → 1
+  role: "background" | "support" | "accent" | "punctuation";
   enabled: boolean;
 };
 
-type ResonanceState = {
-  rows: ResonanceRow[];
+type MediaState = {
+  media: MediaAsset[];
   loading: boolean;
   error: string | null;
 
   load: () => Promise<void>;
-  updateLocal: (
-    emoji: string,
-    media_path: string,
-    role: string,
-    patch: Partial<Pick<ResonanceRow, "intensity" | "enabled">>
-  ) => void;
+  updateLocal: (path: string, patch: Partial<MediaAsset>) => void;
   save: () => Promise<void>;
 };
 
-export const useResonanceStore = create<ResonanceState>((set, get) => ({
-  rows: [],
+/* ----------------------------- */
+/* STORE                         */
+/* ----------------------------- */
+
+export const useMediaStore = create<MediaState>((set, get) => ({
+  media: [],
   loading: false,
   error: null,
+
+  /* --------------------------- */
+  /* LOAD                        */
+  /* --------------------------- */
 
   load: async () => {
     set({ loading: true, error: null });
 
     const { data, error } = await supabase
-      .from("emoji_media")
-      .select("emoji, media_path, role, intensity, enabled")
-      .order("emoji", { ascending: true });
+      .from("media_assets")
+      .select("path, category, climate, energy, role, enabled")
+      .order("category", { ascending: true })
+      .order("path", { ascending: true });
 
     if (error) {
       console.error(error);
@@ -43,39 +52,48 @@ export const useResonanceStore = create<ResonanceState>((set, get) => ({
       return;
     }
 
-    set({ rows: data || [], loading: false });
+    set({ media: data || [], loading: false });
   },
 
-  updateLocal: (emoji, media_path, role, patch) => {
+  /* --------------------------- */
+  /* LOCAL UPDATE                */
+  /* --------------------------- */
+
+  updateLocal: (path, patch) => {
     set((state) => ({
-      rows: state.rows.map((r) =>
-        r.emoji === emoji &&
-        r.media_path === media_path &&
-        r.role === role
-          ? { ...r, ...patch }
-          : r
+      media: state.media.map((m) =>
+        m.path === path ? { ...m, ...patch } : m
       ),
     }));
   },
 
+  /* --------------------------- */
+  /* SAVE (API serveur)          */
+  /* --------------------------- */
+
   save: async () => {
-    const rows = get().rows;
+    const media = get().media;
 
-    const res = await fetch(
-      "https://echohypno-api.vercel.app/api/admin/save",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows }),
+    try {
+      const res = await fetch(
+        "https://echohypno-api.vercel.app/api/admin/media/save",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ media }),
+        }
+      );
+
+      if (!res.ok) {
+        console.error(await res.text());
+        alert("Erreur sauvegarde API");
+        return;
       }
-    );
 
-    if (!res.ok) {
-      console.error(await res.text());
-      alert("Erreur sauvegarde API");
-      return;
+      alert("Sauvegarde réussie ✔");
+    } catch (e) {
+      console.error(e);
+      alert("Erreur réseau");
     }
-
-    alert("Sauvegarde réussie ✔");
   },
 }));
